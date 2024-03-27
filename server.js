@@ -38,7 +38,7 @@ const createForwardingRequest = async (three_d_secure_data) => {
     payment_method: "pm_1OywS6E16bvDBxZbkGabVgug",  
     url: "https://api.sandbox.checkout.com/payments",
     "request[headers][0][name]": "Authorization",
-    "request[headers][0][value]": "Bearer sk_sbox_cc3xyrd2mp7yurkdt2rywylenud",
+    "request[headers][0][value]": "Bearer sk_sbox_xr7cwy45awyo37gxiq6iemp62yj",
     "request[headers][1][name]": "Content-Type",
     "request[headers][1][value]": "application/json",
    // "request[headers][2][name]": "User-Agent",

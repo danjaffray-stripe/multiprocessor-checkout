@@ -30,12 +30,12 @@ This project demonstrates a multiprocessor checkout system using Node.js.
 1. Start the server:
 
     ```bash
-    node server.js
+    nodemon server.js
     ```
 
-2. Open `index.html` in your web browser.
+2. Open `http://localhost:4242` in your web browser.
 
-3. Use the checkout system to add items to the cart and complete the purchase.
+3. Complete a purchase using the Stripe test cards.
 
 ## Architecture
 
