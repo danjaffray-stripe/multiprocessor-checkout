@@ -130,6 +130,8 @@ async function handleSubmit(e) {
       console.log(error.message);
       showMessage(error.message);
       setLoading(false);
+      console.timeEnd(['Run 3DSecure'])
+      return
 
     } else {
       console.log(setupIntent.status);
