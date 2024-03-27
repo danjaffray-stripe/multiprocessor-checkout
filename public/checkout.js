@@ -14,7 +14,6 @@ async function fetchStripeConfig() {
   }
 }
 
-
 let elements
 let paymentElement
 let response

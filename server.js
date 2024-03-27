@@ -49,7 +49,7 @@ const createForwardingRequest = async (customer, payment_method, three_d_secure_
                 body: JSON.stringify(  
                   {
                     "amount": amount,
-                    "currency": "USD",
+                    "currency": "gbp",
                     "reference": `ORD-${order_id}`,
                     "processing_channel_id": "pc_6ar3fa7ihnkunif27w2eycyj44",
                     "reference": "Visa-USD-Test",
@@ -261,8 +261,7 @@ app.get('/stripe-config', (req, res) => {
       case 'IE':
           publishableKey = process.env.IE_STRIPE_ACCOUNT_PUBLISHABLE_KEY;
           break;
-      // Add cases for other environments as required
-  }
+    }
 
   if(publishableKey) {
       res.json({ publishableKey });

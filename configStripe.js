@@ -4,13 +4,13 @@ const Stripe = require('stripe');
 /**
  * Initializes Stripe with keys based on the environment provided.
  * 
- * @param {string} env - The environment to use ('dev', 'test', etc.)
+ * @param {string} account - The Stripe account to use ('IE', 'GB', etc.)
  * @returns {Stripe} A Stripe instance configured with the appropriate keys.
  */
-function initializeStripe(env) {
+function initializeStripe(account) {
   let secretKey, publishableKey;
 
-  switch (env) {
+  switch (account) {
     case 'GB':
       secretKey = process.env.GB_STRIPE_SECRET_KEY;
       publishableKey = process.env.GB_STRIPE_PUBLISHABLE_KEY;
