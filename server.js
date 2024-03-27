@@ -188,7 +188,10 @@ app.post('/payments', async (req, res) => {
 
     const forwardingRequest = await createForwardingRequest(latest_attempt.payment_method_details.card.three_d_secure)
     
-    res.json(forwardingRequest)
+    res.json({three_d_secure: latest_attempt.payment_method_details.card.three_d_secure, 
+      forwardingRequest: forwardingRequest
+      })
+      
     console.timeEnd('Forwarding-request')
     console.timeEnd(['payments endpoint'])
 
