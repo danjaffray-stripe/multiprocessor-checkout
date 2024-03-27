@@ -11,10 +11,10 @@ const initializeStripe = require('./configStripe');
 var stripe = initializeStripe('GB');
 
 const CHECKOUT_KEY_THREE = process.env.CHECKOUT_KEY_THREE
-console.log(CHECKOUT_KEY_THREE)
 
 const querystring = require("querystring");  
 const { exit } = require('process');
+const { get } = require('http');
 
 // parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: false }))
@@ -28,9 +28,12 @@ const server = app.listen(port, () => {
     console.log(`Server running on port ${port}`)
 });
   
-const createForwardingRequest = async (payment_method, three_d_secure_data) => {
+const createForwardingRequest = async (customer, payment_method, three_d_secure_data) => {
 
   const { authentication_flow, version, electronic_commerce_indicator, cryptogram, transaction_id } = three_d_secure_data
+
+  let order_id = getRandomInt(100000, 999999)
+  let amount = getRandomInt(10000, 99999)
 
   try {
     const forwardedReq = await stripe.forwarding.requests.create(
@@ -45,10 +48,15 @@ const createForwardingRequest = async (payment_method, three_d_secure_data) => {
                 }],       
                 body: JSON.stringify(  
                   {
-                    "amount": 10000,
+                    "amount": amount,
                     "currency": "USD",
+                    "reference": `ORD-${order_id}`,
                     "processing_channel_id": "pc_6ar3fa7ihnkunif27w2eycyj44",
                     "reference": "Visa-USD-Test",
+                    "customer": {
+                      "email": customer.email,
+                      "name": customer.name,
+                    },
                     "3ds": {
                       "eci": electronic_commerce_indicator,
                       "cryptogram": "M6+990I6FLD8Y6rZz9d5QbfrMNY=",
@@ -102,52 +110,54 @@ app.post('/create-forwarding-request', async (req, res) => {
 
 app.post('/create-setup-intent', async (req, res) => {
 
-  console.time(['create-setup-intent'])
+  const data = req.body;
 
-    const data = req.body;
+  console.time(['create-customer'])
 
-    try {
-        var order_number = getRandomInt(100000, 999999)
-        var order_id = `Order - ${order_number}`
+  try {
+    var customer = await createCustomer()
+    console.timeEnd(['create-customer'])
 
-        const setupIntent = await stripe.setupIntents.create({   
-            
-            automatic_payment_methods:{
-              enabled: true,
-              allow_redirects: "never"
-            },
-            //payment_method_types:["card"],
-            //confirm:"true",
-            usage:"on_session",
-            description: order_id,
-            customer: "cus_PoEuENNn4JGWab",
-            single_use:{
-              amount: 2000,
-              currency: "eur"
-            },
-            //confirmation_token: data.confirmationToken.id,
-            payment_method_options: {
-              card: {
-                request_three_d_secure: "any", // any | automatic 
-                  verify_card_account:"never",
-                  /*gateway:{
-                    acquirer_bin:  "424242",
-                    merchant_id:  "MITPOTYGNFQBEVD",
-                    requestor_id: "V0000000001234"
-                }*/
-              }
+  } catch (error) {
+    console.log(`Create Customer error:  ${error.message}`)
+  }
+
+  try {
+      var order_number = getRandomInt(100000, 999999)
+      var order_id = `Order - ${order_number}`
+      console.time(['create-setup-intent'])
+
+      const setupIntent = await stripe.setupIntents.create({   
+          
+          automatic_payment_methods:{
+            enabled: true,
+            allow_redirects: "never"
+          },
+          usage:"on_session",
+          description: order_id,
+          customer: customer.id,
+          payment_method_options: {
+            card: {
+              request_three_d_secure: "any", // any | automatic 
+                verify_card_account:"never",
+                /*gateway:{
+                  acquirer_bin:  "424242",
+                  merchant_id:  "MITPOTYGNFQBEVD",
+                  requestor_id: "V0000000001234"
+              }*/
             }
-          });
-
-          res.json(setupIntent);
-          console.timeEnd(['create-setup-intent'])
-   
-    } catch (error) {
-        console.log(`Create SetupIntent error:  ${error.message}`)
-        res.json({
-          error: error.message
+          }
         });
-    }
+
+        res.json(setupIntent);
+        console.timeEnd(['create-setup-intent'])
+  
+  } catch (error) {
+      console.log(`Create SetupIntent error:  ${error.message}`)
+      res.json({
+        error: error.message
+      });
+  }
 });
 
 app.post('/payments', async (req, res) => {
@@ -159,15 +169,14 @@ app.post('/payments', async (req, res) => {
   try {
     console.time(['retrieve setupIntent'])
 
-    var {payment_method, latest_attempt } = await stripe.setupIntents.retrieve(
+    var {payment_method, latest_attempt, customer} = await stripe.setupIntents.retrieve(
       setupIntentId, {
-        expand: ['latest_attempt']
+        expand: ['latest_attempt', 'customer']
       }
     );
 
     const {payment_method_details: {card: {three_d_secure}}} = latest_attempt;
 
-    console.log(latest_attempt.payment_method_details.card.three_d_secure)
     console.timeEnd(['retrieve setupIntent'])
 
   } catch (error) {
@@ -181,7 +190,7 @@ app.post('/payments', async (req, res) => {
   try {
     console.time(['Forwarding-request'])
 
-    const forwardingRequest = await createForwardingRequest(payment_method, latest_attempt.payment_method_details.card.three_d_secure)
+    const forwardingRequest = await createForwardingRequest(customer, payment_method, latest_attempt.payment_method_details.card.three_d_secure)
     
     res.json({
       three_d_secure: latest_attempt.payment_method_details.card.three_d_secure, 
@@ -199,48 +208,6 @@ app.post('/payments', async (req, res) => {
     exit()
   }
 
-  /*
-  try {
-    var order_number = getRandomInt(100000, 999999)
-    var order_id = `Order - ${order_number}`
-
-    const paymentIntent = await stripe.paymentIntents.create({    
-      automatic_payment_methods:{
-        enabled: true,
-        allow_redirects: "never"
-
-      },
-      confirm:"true",
-      off_session: "true",
-      description: order_id,
-      amount: 2000,
-      currency: "eur",
-      customer: "cus_PoEuENNn4JGWab",
-      expand: ['latest_charge'],
-      payment_method: payment_method,
-      //error_on_requires_action: "true",
-      payment_method_options: {
-        card: {
-          three_d_secure: {
-            version: latest_attempt.payment_method_details.card.three_d_secure.version,
-            electronic_commerce_indicator:latest_attempt.payment_method_details.card.three_d_secure.electronic_commerce_indicator,
-            cryptogram: "M6+990I6FLD8Y6rZz9d5QbfrMNY=",
-            transaction_id: latest_attempt.payment_method_details.card.three_d_secure.transaction_id
-          },
-        }
-      }
-    });
-
-    console.log(paymentIntent.status)
-    res.json(paymentIntent);
-      
-  } catch (error) {
-      console.log(`PaymentIntent error:  ${error.message}`)
-      res.json({
-          error: error.message
-        });
-  }
-  */
 });
 
 const getRandomInt = (min, max) => {
@@ -250,14 +217,17 @@ const getRandomInt = (min, max) => {
 }
 
 const createCustomer = async () => {
+  let int = getRandomInt(1000,9999)
     try {
         const customer = await stripe.customers.create({
-            email: 'danjaffray@gmail.com'
+            email: `person${int}@gmail.com`,
+            name: "Dan Jaffray",
         });
-        console.log(customer.id)
+        return customer
       }
      catch (error) {
         console.log(error.message)
+        return null
     }
   }
 
