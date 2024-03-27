@@ -5,18 +5,13 @@ const app = express();
 app.use(express.static("public"));
 
 // -- Initialize Stripe --
-
 const initializeStripe = require('./configStripe');
 
-// 'dev' or 'test' based on your current need
-//const stripe = initializeStripe('dev');
+// Init based on your current need
+var stripe = initializeStripe('GB');
 
-
-const testSecretKey = process.env.TEST_SECRET_KEY
 const CHECKOUT_TEST_SECRET_KEY = process.env.CHECKOUT_TWO_TEST_KEY
 
-
-const stripe = require('stripe')(testSecretKey);
 const querystring = require("querystring");  
 const { exit } = require('process');
 

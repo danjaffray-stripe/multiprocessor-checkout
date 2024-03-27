@@ -11,11 +11,11 @@ function initializeStripe(env) {
   let secretKey, publishableKey;
 
   switch (env) {
-    case 'dev':
-      secretKey = process.env.DEV_STRIPE_SECRET_KEY;
-      publishableKey = process.env.DEV_STRIPE_PUBLISHABLE_KEY;
+    case 'GB':
+      secretKey = process.env.GB_STRIPE_SECRET_KEY;
+      publishableKey = process.env.GB_STRIPE_PUBLISHABLE_KEY;
       break;
-    case 'test':
+    case 'IE':
       secretKey = process.env.TEST_STRIPE_SECRET_KEY;
       publishableKey = process.env.TEST_STRIPE_PUBLISHABLE_KEY;
       break;
