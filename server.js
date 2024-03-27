@@ -28,7 +28,7 @@ const createForwardingRequest = async (three_d_secure_data) => {
 
   const { authentication_flow, version, electronic_commerce_indicator, cryptogram, transaction_id } = three_d_secure_data
 
-  console.time(['my-forwarding-request'])
+  console.time(['Forwarding-request'])
 
   // Forwarding Config ID for Checkout.com gateway
   const FORWARDING_CONFIG_ID = "fwdcfg_acct_TESTCONFIG_checkout_payments";  
@@ -85,14 +85,10 @@ const createForwardingRequest = async (three_d_secure_data) => {
       body: querystring.stringify(bodyData),  
     });  
   
-    console.log(querystring.stringify(bodyData))
-
     const jsonData = await response.json();  
 
-    console.log("Headers:")
-    console.log(jsonData.request.headers)
-    console.log(jsonData);  
-    console.timeEnd('my-forwarding-request')
+    console.log(`Endpoint status: ${jsonData.response.status}`);  
+    console.timeEnd('Forwarding-request')
     return jsonData;
     
   } catch (error) {  
@@ -113,6 +109,9 @@ app.post('/create-forwarding-request', async (req, res) => {
 })
 
 app.post('/create-setup-intent', async (req, res) => {
+
+  console.time(['create-setup-intent'])
+
     const data = req.body;
 
     try {
@@ -149,7 +148,8 @@ app.post('/create-setup-intent', async (req, res) => {
           });
 
           res.json(setupIntent);
-        
+          console.timeEnd(['create-setup-intent'])
+   
     } catch (error) {
         console.log(`Create SetupIntent error:  ${error.message}`)
         res.json({
@@ -159,13 +159,14 @@ app.post('/create-setup-intent', async (req, res) => {
 });
 
 app.post('/payments', async (req, res) => {
+  console.time(['payments endpoint'])
+
   const data = req.body;
-
-  console.log(`data recieved from frontend: ${data.setupIntent.id}`)
-
   const setupIntentId = data.setupIntent.id
 
   try {
+    console.time(['retrieve setupIntent'])
+
     var {payment_method, latest_attempt } = await stripe.setupIntents.retrieve(
       setupIntentId, {
         expand: ['latest_attempt']
@@ -175,6 +176,7 @@ app.post('/payments', async (req, res) => {
     const {payment_method_details: {card: {three_d_secure}}} = latest_attempt;
 
     console.log(latest_attempt.payment_method_details.card.three_d_secure)
+    console.timeEnd(['retrieve setupIntent'])
 
   } catch (error) {
     console.log(`Retrieve SetupIntent error:  ${error.message}`)    
@@ -186,7 +188,10 @@ app.post('/payments', async (req, res) => {
   
   try {
     const forwardingRequest = await createForwardingRequest(latest_attempt.payment_method_details.card.three_d_secure)
+    
     res.json(forwardingRequest)
+    console.timeEnd(['payments endpoint'])
+
 
   } catch (error) {
     console.log(`Forwarding error:  ${error.message}`)    
