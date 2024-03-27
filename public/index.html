@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Multiprocessor</title>
+    <meta name="description" content="Mulitprocessor Demo" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="checkout.css" />
+    <script src="https://js.stripe.com/v3/"></script>
+    <script src="checkout.js" defer></script>
+  </head>
+  <body>
+    <!-- Display a payment form -->
+    <form id="payment-form">
+
+      <h3>Amount:</h3>
+      <div id="amount-element"></div>
+
+      <h3>Email:</h3>
+      <div id="email-element">
+        <input type="email" id="email" name="email" required>
+      </div>
+
+      <h3>Payment</h3>
+      <div id="payment-element"></div>
+
+      <button id="submit">
+        <div class="spinner hidden" id="spinner"></div>
+        <span id="button-text">Pay now</span>
+      </button>
+
+      <div id="payment-message" class="hidden"></div>
+      <div id="result-message" class="hidden"></div>
+
+    </form>
+  </body>
+</html>
