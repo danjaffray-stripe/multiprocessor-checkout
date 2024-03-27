@@ -10,7 +10,8 @@ const initializeStripe = require('./configStripe');
 // Init based on your current need
 var stripe = initializeStripe('GB');
 
-const CHECKOUT_TEST_SECRET_KEY = process.env.CHECKOUT_TWO_TEST_KEY
+const CHECKOUT_KEY_THREE = process.env.CHECKOUT_KEY_THREE
+console.log(CHECKOUT_KEY_THREE)
 
 const querystring = require("querystring");  
 const { exit } = require('process');
@@ -27,76 +28,66 @@ const server = app.listen(port, () => {
     console.log(`Server running on port ${port}`)
 });
   
-const createForwardingRequest = async (three_d_secure_data) => {  
+const createForwardingRequest = async (payment_method, three_d_secure_data) => {
 
   const { authentication_flow, version, electronic_commerce_indicator, cryptogram, transaction_id } = three_d_secure_data
 
-  // Forwarding Config ID for Checkout.com gateway
-  const FORWARDING_CONFIG_ID = "fwdcfg_acct_TESTCONFIG_checkout_payments";  
-
-  const bodyData = {  
-    config: FORWARDING_CONFIG_ID,  
-    payment_method: "pm_1OywS6E16bvDBxZbkGabVgug",  
-    url: "https://api.sandbox.checkout.com/payments",
-    "request[headers][0][name]": "Authorization",
-    "request[headers][0][value]": "Bearer sk_sbox_xr7cwy45awyo37gxiq6iemp62yj",
-    "request[headers][1][name]": "Content-Type",
-    "request[headers][1][value]": "application/json",
-   // "request[headers][2][name]": "User-Agent",
-   // "request[headers][2][value]": "PostmanRuntime/7.37.0",
-    "request[body]":JSON.stringify(  
-    {
-      "amount": 10000,
-      "currency": "USD",
-      "processing_channel_id": "pc_6ar3fa7ihnkunif27w2eycyj44",
-      "reference": "Visa-USD-Test",
-      "3ds": {
-        "eci": "05",
-        "cryptogram": "M6+990I6FLD8Y6rZz9d5QbfrMNY=",
-        "xid": "M6+990I6FLD8Y6rZz9d5QbfrMNY=",
-        "version": "2.1.0",
-        "exemption": "low_value",
-        "challenge_indicator": "no_preference",
-      },
-      "source": {
-        "type": "card",
-        "number": "",
-        "expiry_month": "",
-        "expiry_year": "",
-        "name": "",
-        "cvv": "",
-        "billing_address": {
-          "address_line1": "123 High St.",
-          "address_line2": "Flat 456",
-          "city": "London",
-          "state": "GB",
-          "zip": "SW1A 1AA",
-          "country": "GB"
+  try {
+    const forwardedReq = await stripe.forwarding.requests.create(
+        {
+            config: 'fwdcfg_acct_TESTCONFIG_checkout_payments',
+            payment_method: payment_method,
+            url: 'https://api.sandbox.checkout.com/payments',
+            request: {
+                headers: [{
+                    name: 'Authorization',
+                    value: `Bearer ${CHECKOUT_KEY_THREE}`
+                }],       
+                body: JSON.stringify(  
+                  {
+                    "amount": 10000,
+                    "currency": "USD",
+                    "processing_channel_id": "pc_6ar3fa7ihnkunif27w2eycyj44",
+                    "reference": "Visa-USD-Test",
+                    "3ds": {
+                      "eci": electronic_commerce_indicator,
+                      "cryptogram": "M6+990I6FLD8Y6rZz9d5QbfrMNY=",
+                      "xid": transaction_id,
+                      "version": version,
+                      "exemption": "low_value",
+                      "challenge_indicator": "no_preference",
+                    },
+                    "source": {
+                      "type": "card",
+                      "number": "",
+                      "expiry_month": 0,
+                      "expiry_year": 0,
+                      "name": "",
+                      "cvv": "",
+                      "billing_address": {
+                        "address_line1": "123 High St.",
+                        "address_line2": "Flat 456",
+                        "city": "London",
+                        "state": "GB",
+                        "zip": "SW1A 1AA",
+                        "country": "GB"
+                      }
+                    },
+                  }) 
+            },
+            replacements: ['card_number', 'card_expiry', 'card_cvc', 'cardholder_name'],
         }
-      },
-    }) 
-  };  
-  
-  try {  
-    const response = await fetch("https://api.stripe.com/v1/forwarding/requests", {  
-      method: "POST",  
-      headers: {  
-        "Content-Type": "application/x-www-form-urlencoded",  
-        Authorization: `Bearer ${testSecretKey}`
-      },  
-      body: querystring.stringify(bodyData),  
-    });  
-  
-    const jsonData = await response.json();  
+    );
 
-    console.log(JSON.parse(jsonData.response.body));  
-    return jsonData;
+    console.log(JSON.parse(forwardedReq.response_details.body));  
+
+    return forwardedReq;
     
-  } catch (error) {  
-    console.log("Forwarding Request Error");  
-    console.trace(error);  
-  }  
-};  
+} catch (err) {
+    console.log(err.message);
+}
+
+}
 
 app.post('/create-forwarding-request', async (req, res) => {
     const data = req.body;
@@ -190,7 +181,7 @@ app.post('/payments', async (req, res) => {
   try {
     console.time(['Forwarding-request'])
 
-    const forwardingRequest = await createForwardingRequest(latest_attempt.payment_method_details.card.three_d_secure)
+    const forwardingRequest = await createForwardingRequest(payment_method, latest_attempt.payment_method_details.card.three_d_secure)
     
     res.json({
       three_d_secure: latest_attempt.payment_method_details.card.three_d_secure, 
