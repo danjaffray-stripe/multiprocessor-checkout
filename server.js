@@ -4,6 +4,14 @@ const bodyParser = require('body-parser');
 const app = express();
 app.use(express.static("public"));
 
+// -- Initialize Stripe --
+
+const initializeStripe = require('./configStripe');
+
+// 'dev' or 'test' based on your current need
+//const stripe = initializeStripe('dev');
+
+
 const testSecretKey = process.env.TEST_SECRET_KEY
 const CHECKOUT_TEST_SECRET_KEY = process.env.CHECKOUT_TWO_TEST_KEY
 
@@ -45,6 +53,7 @@ const createForwardingRequest = async (three_d_secure_data) => {
     {
       "amount": 10000,
       "currency": "USD",
+      "processing_channel_id": "pc_6ar3fa7ihnkunif27w2eycyj44",
       "reference": "Visa-USD-Test",
       "3ds": {
         "eci": "05",
@@ -85,7 +94,7 @@ const createForwardingRequest = async (three_d_secure_data) => {
   
     const jsonData = await response.json();  
 
-    console.log(`Endpoint status: ${jsonData.response.status}`);  
+    console.log(JSON.parse(jsonData.response.body));  
     return jsonData;
     
   } catch (error) {  
@@ -284,3 +293,24 @@ const createPaymentMethod = async (card) => {
         console.log(error.message)
     }
 }
+
+app.get('/stripe-config', (req, res) => {
+  const env = process.env.TEST_COUNTRY || 'GB'; // Defaulting to 'dev' if TEST_COUNTRY isn't set
+  let publishableKey;
+
+  switch (env) {
+      case 'GB':
+          publishableKey = process.env.GB_STRIPE_ACCOUNT_PUBLISHABLE_KEY;
+          break;
+      case 'IE':
+          publishableKey = process.env.IE_STRIPE_ACCOUNT_PUBLISHABLE_KEY;
+          break;
+      // Add cases for other environments as required
+  }
+
+  if(publishableKey) {
+      res.json({ publishableKey });
+  } else {
+      res.status(500).json({ error: 'Unable to retrieve Stripe configuration.' });
+  }
+});

@@ -1,13 +1,25 @@
+async function fetchStripeConfig() {
+  try {
+      const response = await fetch('/stripe-config');
+      const config = await response.json();
+    
+      if (config.publishableKey) {
+          var stripe = Stripe(config.publishableKey);
+          return stripe
+      } else {
+          console.error('Publishable key is missing.');
+      }
+  } catch (error) {
+      console.error('Failed to fetch Stripe configuration:', error);
+  }
+}
 
-const testPublishabletKey = "pk_test_51KqK28E16bvDBxZbHHkDwYbHaxcMWqBm03u5BcKTSiv0fMab2gxLCPrESpLRRvzjHV8oEwlsZsBrO71ImLF0JYmA00DWNfbxvf"
-
-const stripe = Stripe(testPublishabletKey, options = {
-  betas: ['elements_enable_deferred_intent_beta_1', 'deferred_intent_pe_optional_amount_beta_0']});
 
 let elements
 let paymentElement
 let response
 let jsonData
+var stripe
 
 initialize();
 
@@ -17,6 +29,8 @@ document.addEventListener("submit", handleSubmit);
 // ------- Initialize Stripe Elements -------
 async function initialize() {
 
+  stripe = await fetchStripeConfig();
+
   let amount = 1000;
 
   showAmount(amount);
@@ -24,6 +38,7 @@ async function initialize() {
   elements = stripe.elements({
     mode: 'setup',
     //amount: amount,
+    currency: 'gbp', // optional when betas are enabled
     setupFutureUsage: 'on_session',
     paymentMethodCreation: 'manual',
 
