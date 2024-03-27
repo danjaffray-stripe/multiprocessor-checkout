@@ -96,7 +96,6 @@ async function handleSubmit(e) {
     });
 
     jsonData = await response.json();
-    console.log(`setupIntent created: ${jsonData.id} `)
     showMessage("SetupIntent created successfully");
     console.timeEnd(['create SetupIntent'])
 
@@ -104,17 +103,13 @@ async function handleSubmit(e) {
     console.log(error.message); 
     setLoading(false);
     showMessage(error.message);
-
+    console.timeEnd(['create SetupIntent'])
   }
 
   //  ------- Run 3DSecure on clientSide ------- 
   // The payment_method was associated with the SetupIntent above, so we only need the client secret to run 3DSecure
   try {
     
-    //var { setupIntent}  = await stripe.confirmCardSetup(
-    //  jsonData.client_secret
-    //);
-
     console.time(['Run 3DSecure'])
 
     var { setupIntent, error}  = await stripe.confirmSetup({
@@ -134,7 +129,6 @@ async function handleSubmit(e) {
       return
 
     } else {
-      console.log(setupIntent.status);
       showMessage(setupIntent.status);
     }
     console.timeEnd(['Run 3DSecure'])
