@@ -28,8 +28,6 @@ const createForwardingRequest = async (three_d_secure_data) => {
 
   const { authentication_flow, version, electronic_commerce_indicator, cryptogram, transaction_id } = three_d_secure_data
 
-  console.time(['Forwarding-request'])
-
   // Forwarding Config ID for Checkout.com gateway
   const FORWARDING_CONFIG_ID = "fwdcfg_acct_TESTCONFIG_checkout_payments";  
 
@@ -88,7 +86,6 @@ const createForwardingRequest = async (three_d_secure_data) => {
     const jsonData = await response.json();  
 
     console.log(`Endpoint status: ${jsonData.response.status}`);  
-    console.timeEnd('Forwarding-request')
     return jsonData;
     
   } catch (error) {  
@@ -187,11 +184,13 @@ app.post('/payments', async (req, res) => {
   }
   
   try {
+    console.time(['Forwarding-request'])
+
     const forwardingRequest = await createForwardingRequest(latest_attempt.payment_method_details.card.three_d_secure)
     
     res.json(forwardingRequest)
+    console.timeEnd('Forwarding-request')
     console.timeEnd(['payments endpoint'])
-
 
   } catch (error) {
     console.log(`Forwarding error:  ${error.message}`)    

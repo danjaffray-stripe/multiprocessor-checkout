@@ -54,6 +54,8 @@ async function initialize() {
 
 // ------- Handle Payment Submission -------
 async function handleSubmit(e) {
+
+  console.time(['handleSubmit'])
   
   e.preventDefault();
   setLoading(true);
@@ -67,10 +69,13 @@ async function handleSubmit(e) {
   //  ------- Create PaymentMethod from Payment Element ------- 
   try {
 
+    console.time(['create Confirmation Token'])
+
     var { confirmationToken } = await stripe.createConfirmationToken({elements}); 
     console.log(`confirmationToken created: ${confirmationToken.id} `)
 
     showMessage("confirmationToken created successfully}");
+    console.timeEnd(['create Confirmation Token'])
 
   } catch (error) {
     console.log(error.message);
@@ -82,6 +87,8 @@ async function handleSubmit(e) {
   // ------- Create SetupIntent to run 3DSecure ------- 
   try {
     
+    console.time(['create SetupIntent'])
+
     response = await fetch("/create-setup-intent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -91,6 +98,7 @@ async function handleSubmit(e) {
     jsonData = await response.json();
     console.log(`setupIntent created: ${jsonData.id} `)
     showMessage("SetupIntent created successfully");
+    console.timeEnd(['create SetupIntent'])
 
   } catch (error) {
     console.log(error.message); 
@@ -106,6 +114,8 @@ async function handleSubmit(e) {
     //var { setupIntent}  = await stripe.confirmCardSetup(
     //  jsonData.client_secret
     //);
+
+    console.time(['Run 3DSecure'])
 
     var { setupIntent, error}  = await stripe.confirmSetup({
       clientSecret: jsonData.client_secret,
@@ -125,7 +135,8 @@ async function handleSubmit(e) {
       console.log(setupIntent.status);
       showMessage(setupIntent.status);
     }
-  
+    console.timeEnd(['Run 3DSecure'])
+
 
   } catch (error) {
     console.log(error.message);
@@ -136,6 +147,8 @@ async function handleSubmit(e) {
   //  ------- Send SetupIntent to Server ------- 
   try {
     
+    console.time(['Send SetupIntent to Server'])
+
     response = await fetch("/payments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -144,6 +157,7 @@ async function handleSubmit(e) {
 
     jsonData = await response.json();
     console.log(jsonData)
+    console.timeEnd(['Send SetupIntent to Server'])
 
 
   } catch (error) {
@@ -154,6 +168,8 @@ async function handleSubmit(e) {
   }
   showMessage("PaymentIntent created successfully");
   setLoading(false);
+  console.timeEnd(['handleSubmit'])
+
 }
 
 // ------- UI helpers -------
