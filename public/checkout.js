@@ -15,9 +15,6 @@ async function fetchStripeConfig() {
 }
 
 let elements
-let paymentElement
-let response
-let jsonData
 var stripe
 
 initialize();
@@ -50,7 +47,7 @@ async function initialize() {
     }
   };
 
-  paymentElement = elements.create("payment", paymentElementOptions);
+  var paymentElement = elements.create("payment", paymentElementOptions);
   paymentElement.mount("#payment-element");
 
   var emailInput = document.getElementById('email');
@@ -109,7 +106,7 @@ async function handleSubmit(e) {
       body: JSON.stringify({ confirmationToken }),
     });
 
-    jsonData = await response.json();
+    var jsonData = await response.json();
     showMessage("SetupIntent created successfully");
     console.timeEnd(['create SetupIntent'])
 
@@ -165,7 +162,7 @@ async function handleSubmit(e) {
       body: JSON.stringify({ setupIntent }),
     });
 
-    jsonData = await response.json();
+    var jsonData = await response.json();
     console.log(jsonData)
     console.timeEnd(['Send SetupIntent to Server'])
 
