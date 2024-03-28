@@ -200,7 +200,7 @@ app.post('/payments', async (req, res) => {
     
     res.json({
       three_d_secure: latest_attempt.payment_method_details.card.three_d_secure, 
-      forwardingRequest: forwardingRequest
+      forwardingRequest: JSON.parse(forwardingRequest.response_details.body)
       })
 
     console.timeEnd('Forwarding-request')
