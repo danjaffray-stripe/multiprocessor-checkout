@@ -120,12 +120,17 @@ app.post('/create-setup-intent', async (req, res) => {
 
   } catch (error) {
     console.log(`Create Customer error:  ${error.message}`)
+    res.json({
+      error: error.message
+    });
+    exit()
   }
 
   try {
+      console.time(['create-setup-intent'])
+
       var order_number = getRandomInt(100000, 999999)
       var order_id = `Order - ${order_number}`
-      console.time(['create-setup-intent'])
 
       const setupIntent = await stripe.setupIntents.create({   
           
@@ -157,6 +162,7 @@ app.post('/create-setup-intent', async (req, res) => {
       res.json({
         error: error.message
       });
+      exit()
   }
 });
 
