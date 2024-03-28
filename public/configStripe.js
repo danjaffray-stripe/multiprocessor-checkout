@@ -1,4 +1,4 @@
-export async function fetchStripeConfig() {
+async function fetchStripeConfig() {
     try {
         const response = await fetch('/stripe-config');
         const config = await response.json();

@@ -1,4 +1,3 @@
-import { fetchStripeConfig } from './configStripe.js';
 
 let elements
 var stripe
