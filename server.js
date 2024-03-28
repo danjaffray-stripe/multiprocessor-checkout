@@ -7,6 +7,9 @@ app.use(express.static("public"));
 // -- Initialize Stripe --
 const initializeStripe = require('./configStripe');
 
+// -- Random Name Generator --
+const randomNameGenerator = require('./random_generator/randomNameGenerator');
+
 // Init based on your current need
 var stripe = initializeStripe('GB');
 
@@ -96,6 +99,12 @@ const createForwardingRequest = async (customer, payment_method, three_d_secure_
 }
 
 }
+
+app.get('/get-random-details', (req, res) => {
+
+
+
+})
 
 app.post('/create-forwarding-request', async (req, res) => {
     const data = req.body;
@@ -224,10 +233,13 @@ const getRandomInt = (min, max) => {
 
 const createCustomer = async () => {
   let int = getRandomInt(1000,9999)
+
+  const details = await randomNameGenerator()
+
     try {
         const customer = await stripe.customers.create({
-            email: `person${int}@gmail.com`,
-            name: "Dan Jaffray",
+            email: details.email,
+            name: details.name,
         });
         return customer
       }
