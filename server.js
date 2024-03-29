@@ -100,9 +100,10 @@ const createForwardingRequest = async (customer, payment_method, three_d_secure_
 
 }
 
-app.get('/get-random-details', (req, res) => {
+app.get('/get-random-customer', async (req, res) => {
 
-
+  const details = await randomNameGenerator()
+  res.json(details)
 
 })
 
@@ -120,6 +121,8 @@ app.post('/create-forwarding-request', async (req, res) => {
 app.post('/create-setup-intent', async (req, res) => {
 
   const data = req.body;
+
+  console.log(data)
 
   console.time(['create-customer'])
 

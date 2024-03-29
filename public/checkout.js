@@ -11,6 +11,7 @@ document.addEventListener("submit", handleSubmit);
 async function initialize() {
 
   stripe = await fetchStripeConfig();
+  customer = await createRandomCustomer();
 
   let amount = 1000;
 
@@ -27,6 +28,12 @@ async function initialize() {
 
   const paymentElementOptions = {
     layout: "accordion",
+    defaultValues:{
+      billingDetails: {
+        name: customer.name,
+        email: customer.email,
+      }
+    },
     fields: {
       billingDetails: "auto"
     }
