@@ -30,75 +30,26 @@ let port = 4242
 const server = app.listen(port, () => {
     console.log(`Server running on port ${port}`)
 });
-  
-const createForwardingRequest = async (customer, payment_method, three_d_secure_data) => {
 
-  const { authentication_flow, version, electronic_commerce_indicator, cryptogram, transaction_id } = three_d_secure_data
+app.get('/stripe-config', (req, res) => {
+  const env = process.env.TEST_COUNTRY || 'GB'; // Defaulting to 'dev' if TEST_COUNTRY isn't set
+  let publishableKey;
 
-  let order_id = getRandomInt(100000, 999999)
-  let amount = getRandomInt(10000, 99999)
+  switch (env) {
+      case 'GB':
+          publishableKey = process.env.GB_STRIPE_ACCOUNT_PUBLISHABLE_KEY;
+          break;
+      case 'IE':
+          publishableKey = process.env.IE_STRIPE_ACCOUNT_PUBLISHABLE_KEY;
+          break;
+    }
 
-  try {
-    const forwardedReq = await stripe.forwarding.requests.create(
-        {
-            config: 'fwdcfg_acct_TESTCONFIG_checkout_payments',
-            payment_method: payment_method,
-            url: 'https://api.sandbox.checkout.com/payments',
-            request: {
-                headers: [{
-                    name: 'Authorization',
-                    value: `Bearer ${CHECKOUT_KEY_THREE}`
-                }],       
-                body: JSON.stringify(  
-                  {
-                    "amount": amount,
-                    "currency": "gbp",
-                    "reference": `ORD-${order_id}`,
-                    "processing_channel_id": "pc_6ar3fa7ihnkunif27w2eycyj44",
-                    "reference": "Visa-USD-Test",
-                    "customer": {
-                      "email": customer.email,
-                      "name": customer.name,
-                    },
-                    "3ds": {
-                      "eci": electronic_commerce_indicator,
-                      "cryptogram": "M6+990I6FLD8Y6rZz9d5QbfrMNY=",
-                      "xid": transaction_id,
-                      "version": version,
-                      "exemption": "low_value",
-                      "challenge_indicator": "no_preference",
-                    },
-                    "source": {
-                      "type": "card",
-                      "number": "",
-                      "expiry_month": 0,
-                      "expiry_year": 0,
-                      "name": "",
-                      "cvv": "",
-                      "billing_address": {
-                        "address_line1": "123 High St.",
-                        "address_line2": "Flat 456",
-                        "city": "London",
-                        "state": "GB",
-                        "zip": "SW1A 1AA",
-                        "country": "GB"
-                      }
-                    },
-                  }) 
-            },
-            replacements: ['card_number', 'card_expiry', 'card_cvc', 'cardholder_name'],
-        }
-    );
-
-    console.log(JSON.parse(forwardedReq.response_details.body));  
-
-    return forwardedReq;
-    
-} catch (err) {
-    console.log(err.message);
-}
-
-}
+  if(publishableKey) {
+      res.json({ publishableKey });
+  } else {
+      res.status(500).json({ error: 'Unable to retrieve Stripe configuration.' });
+  }
+});
 
 app.get('/get-random-customer', async (req, res) => {
 
@@ -228,6 +179,75 @@ app.post('/payments', async (req, res) => {
 
 });
 
+const createForwardingRequest = async (customer, payment_method, three_d_secure_data) => {
+
+  const { authentication_flow, version, electronic_commerce_indicator, cryptogram, transaction_id } = three_d_secure_data
+
+  let order_id = getRandomInt(100000, 999999)
+  let amount = getRandomInt(10000, 99999)
+
+  try {
+    const forwardedReq = await stripe.forwarding.requests.create(
+        {
+            config: 'fwdcfg_acct_TESTCONFIG_checkout_payments',
+            payment_method: payment_method,
+            url: 'https://api.sandbox.checkout.com/payments',
+            request: {
+                headers: [{
+                    name: 'Authorization',
+                    value: `Bearer ${CHECKOUT_KEY_THREE}`
+                }],       
+                body: JSON.stringify(  
+                  {
+                    "amount": amount,
+                    "currency": "gbp",
+                    "reference": `ORD-${order_id}`,
+                    "processing_channel_id": "pc_6ar3fa7ihnkunif27w2eycyj44",
+                    "reference": "Visa-USD-Test",
+                    "customer": {
+                      "email": customer.email,
+                      "name": customer.name,
+                    },
+                    "3ds": {
+                      "eci": electronic_commerce_indicator,
+                      "cryptogram": "M6+990I6FLD8Y6rZz9d5QbfrMNY=",
+                      "xid": transaction_id,
+                      "version": version,
+                      "exemption": "low_value",
+                      "challenge_indicator": "no_preference",
+                    },
+                    "source": {
+                      "type": "card",
+                      "number": "",
+                      "expiry_month": 0,
+                      "expiry_year": 0,
+                      "name": "",
+                      "cvv": "",
+                      "billing_address": {
+                        "address_line1": "123 High St.",
+                        "address_line2": "Flat 456",
+                        "city": "London",
+                        "state": "GB",
+                        "zip": "SW1A 1AA",
+                        "country": "GB"
+                      }
+                    },
+                  }) 
+            },
+            replacements: ['card_number', 'card_expiry', 'card_cvc', 'cardholder_name'],
+        }
+    );
+
+    console.log(JSON.parse(forwardedReq.response_details.body));  
+
+    return forwardedReq;
+    
+} catch (err) {
+    console.log(err.message);
+}
+
+}
+
 const getRandomInt = (min, max) => {
   min = Math.ceil(min);
   max = Math.floor(max);
@@ -241,6 +261,7 @@ const createCustomer = async () => {
 
     try {
         const customer = await stripe.customers.create({
+            id: `${details.firstName.toLowerCase()}-${details.lastName.toLowerCase()}-${int}`,
             email: details.email,
             name: details.name,
         });
@@ -270,23 +291,3 @@ const createPaymentMethod = async (card) => {
         console.log(error.message)
     }
 }
-
-app.get('/stripe-config', (req, res) => {
-  const env = process.env.TEST_COUNTRY || 'GB'; // Defaulting to 'dev' if TEST_COUNTRY isn't set
-  let publishableKey;
-
-  switch (env) {
-      case 'GB':
-          publishableKey = process.env.GB_STRIPE_ACCOUNT_PUBLISHABLE_KEY;
-          break;
-      case 'IE':
-          publishableKey = process.env.IE_STRIPE_ACCOUNT_PUBLISHABLE_KEY;
-          break;
-    }
-
-  if(publishableKey) {
-      res.json({ publishableKey });
-  } else {
-      res.status(500).json({ error: 'Unable to retrieve Stripe configuration.' });
-  }
-});

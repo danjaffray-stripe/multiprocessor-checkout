@@ -35,7 +35,9 @@ const generateRandomNameAndEmail = async () => {
   const emailUserName = `${firstName.toLowerCase()}.${lastName.toLowerCase()}`;
   const email = `${emailUserName}@${emailDomain}`;
 
-  return {  name: fullName, 
+  return {  firstName: firstName,
+            lastName: lastName,
+            name: fullName, 
             email: email };
 };
 

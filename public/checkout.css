@@ -241,7 +241,7 @@
     }
   }
 
-  #email {
+  #email, #name {
     font-size: 16px;
     padding: 12px;
     border: 1px solid #5a5e73f3; /* Adjusted to match your button border style */
@@ -252,7 +252,7 @@
     box-shadow: 0px 2px 5px rgba(50, 50, 93, 0.1);
   }
   
-  #email:focus {
+  #email:focus, #name:focus {
     outline: none;
     border-color: #4059ad; /* A slightly darker blue for focus */
     box-shadow: 0 0 0 2px rgba(64, 89, 173, 0.5); /* Subtle focus glow */

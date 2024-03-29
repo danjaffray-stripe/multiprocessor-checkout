@@ -39,6 +39,10 @@ async function initialize() {
     }
   };
 
+  const options = { mode: 'shipping' };
+  const addressElement = elements.create('address', options);
+  addressElement.mount('#address-element');
+
   var paymentElement = elements.create("payment", paymentElementOptions);
   paymentElement.mount("#payment-element");
 

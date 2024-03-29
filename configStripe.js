@@ -15,6 +15,7 @@ function initializeStripe(account) {
       secretKey = process.env.GB_STRIPE_SECRET_KEY;
       publishableKey = process.env.GB_STRIPE_PUBLISHABLE_KEY;
       break;
+      
     case 'IE':
       secretKey = process.env.TEST_STRIPE_SECRET_KEY;
       publishableKey = process.env.TEST_STRIPE_PUBLISHABLE_KEY;
