@@ -15,7 +15,7 @@ function initializeStripe(account) {
       secretKey = process.env.GB_STRIPE_SECRET_KEY;
       publishableKey = process.env.GB_STRIPE_PUBLISHABLE_KEY;
       break;
-      
+
     case 'IE':
       secretKey = process.env.TEST_STRIPE_SECRET_KEY;
       publishableKey = process.env.TEST_STRIPE_PUBLISHABLE_KEY;
@@ -27,7 +27,7 @@ function initializeStripe(account) {
 
   // Ensure the keys are available
   if (!secretKey || !publishableKey) {
-    throw new Error('Stripe API keys not provided for environment: ' + env);
+    throw new Error('Stripe API keys not provided for environment: ' + account);
   }
 
   // Initialize and return the Stripe instance
