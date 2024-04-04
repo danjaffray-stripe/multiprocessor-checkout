@@ -26,27 +26,41 @@ async function initialize() {
 
   });
 
+  const billingDetails = {
+    name: customer.name,
+    email: customer.email,
+    address: {
+      city: 'London',
+      country: 'GB',
+      line1: '1234 Main Street',
+      line2: '',
+      postal_code: 'W1A 1AB',
+      state: 'Greater London',
+    },
+  };
+
+
   const paymentElementOptions = {
     layout: "accordion",
     defaultValues:{
-      billingDetails: {
-        name: customer.name,
-        email: customer.email,
-      }
+      billingDetails: billingDetails
     },
     fields: {
       billingDetails: "auto"
     }
   };
 
-  const options = { mode: 'shipping' };
-  const addressElement = elements.create('address', options);
+  const addressElementOptions = { mode: 'shipping',
+  defaultValues: billingDetails
+};
+  const addressElement = elements.create('address', addressElementOptions);
   addressElement.mount('#address-element');
 
   var paymentElement = elements.create("payment", paymentElementOptions);
   paymentElement.mount("#payment-element");
 
   var emailInput = document.getElementById('email');
+  emailInput.value = customer.email;
  
   // Attach the event listener for the 'submit' event
     emailInput.addEventListener('change', function() {
@@ -78,7 +92,15 @@ async function handleSubmit(e) {
 
     console.time(['create Confirmation Token'])
 
-    var { confirmationToken } = await stripe.createConfirmationToken({elements}); 
+    var { confirmationToken } = await stripe.createConfirmationToken({
+      elements, 
+      params:{
+        payment_method_data:{
+          billingDetails: elements.getElement('payment').billingDetails,
+        }
+      }
+    
+    }); 
     console.log(`confirmationToken created: ${confirmationToken.id} `)
 
     showMessage("confirmationToken created successfully}");
