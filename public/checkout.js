@@ -29,14 +29,7 @@ async function initialize() {
   const billingDetails = {
     name: customer.name,
     email: customer.email,
-    address: {
-      city: 'London',
-      country: 'GB',
-      line1: '1234 Main Street',
-      line2: '',
-      postal_code: 'W1A 1AB',
-      state: 'Greater London',
-    },
+
   };
 
 
@@ -50,7 +43,7 @@ async function initialize() {
     }
   };
 
-  const addressElementOptions = { mode: 'shipping',
+  const addressElementOptions = { mode: 'billing',
   defaultValues: billingDetails
 };
   const addressElement = elements.create('address', addressElementOptions);
@@ -81,13 +74,15 @@ async function handleSubmit(e) {
   e.preventDefault();
   setLoading(true);
 
-  const {error: submitError} = await elements.submit();
+  const { error: submitError} = await elements.submit();
+
 
   if (submitError) {
     showMessage(submitError);
+    setLoading(false);
     return;
   }
-  //  ------- Create PaymentMethod from Payment Element ------- 
+  //  ------- Create Confirmation Token from Payment Element ------- 
   try {
 
     console.time(['create Confirmation Token'])
@@ -96,7 +91,7 @@ async function handleSubmit(e) {
       elements, 
       params:{
         payment_method_data:{
-          billingDetails: elements.getElement('payment').billingDetails,
+          billingDetails: elements.getElement('address').billingDetails,
         }
       }
     

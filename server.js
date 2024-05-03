@@ -73,13 +73,23 @@ app.post('/create-setup-intent', async (req, res) => {
 
   const data = req.body;
 
-  console.log(data)
-
+  console.log(data.confirmationToken.payment_method_preview)
+  const name = data.confirmationToken.payment_method_preview.billing_details.name
+  const billing_address = data.confirmationToken.payment_method_preview.billing_details.address
+  
   console.time(['create-customer'])
 
   try {
-    var customer = await createCustomer()
+    var customer = await createCustomer(name)
     console.timeEnd(['create-customer'])
+
+    customer = await stripe.customers.update(
+      customer.id,
+      {
+        name: name,
+        address: billing_address,
+      }
+    );
 
   } catch (error) {
     console.log(`Create Customer error:  ${error.message}`)
@@ -144,8 +154,6 @@ app.post('/payments', async (req, res) => {
       }
     );
 
-    const {payment_method_details: {card: {three_d_secure}}} = latest_attempt;
-
     console.timeEnd(['retrieve setupIntent'])
 
   } catch (error) {
@@ -161,9 +169,29 @@ app.post('/payments', async (req, res) => {
 
     const forwardingRequest = await createForwardingRequest(customer, payment_method, latest_attempt.payment_method_details.card.three_d_secure)
     
+    const forwardingResponse = JSON.parse(forwardingRequest.response_details.body)
+
+    try {
+      customer = await stripe.customers.update(
+        customer.id,
+        {
+        default_source: payment_method.id,
+        invoice_settings:{
+          default_payment_method: payment_method.id
+        }
+      });
+      console.log(`Customer updated: ${customer.id}`)
+
+    } catch (error) {
+      console.log(`Update Customer error:  ${error.message}`)
+    }
+
+
+    
+    
     res.json({
       three_d_secure: latest_attempt.payment_method_details.card.three_d_secure, 
-      forwardingRequest: JSON.parse(forwardingRequest.response_details.body)
+      forwardingRequest: forwardingResponse
       })
 
     console.timeEnd('Forwarding-request')
@@ -238,7 +266,7 @@ const createForwardingRequest = async (customer, payment_method, three_d_secure_
         }
     );
 
-    console.log(JSON.parse(forwardedReq.response_details.body));  
+    //console.log(JSON.parse(forwardedReq.response_details.body));  
 
     return forwardedReq;
     
@@ -254,10 +282,18 @@ const getRandomInt = (min, max) => {
   return Math.floor(Math.random() * (max - min) + min); //The maximum is exclusive and the minimum is inclusive
 }
 
-const createCustomer = async () => {
+const createCustomer = async (name) => {
   let int = getRandomInt(1000,9999)
 
-  const details = await randomNameGenerator()
+  var details = await randomNameGenerator()
+
+  if (name) {
+    details = name
+    const customer = await stripe.customers.create({
+      name: details,
+    });
+    return customer
+  } 
 
     try {
         const customer = await stripe.customers.create({
