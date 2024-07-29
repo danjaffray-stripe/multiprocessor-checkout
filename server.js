@@ -1,6 +1,7 @@
 const express = require('express');
 require('dotenv').config()
 const bodyParser = require('body-parser');
+
 const app = express();
 app.use(express.static("public"));
 
@@ -13,17 +14,21 @@ const randomNameGenerator = require('./random_generator/randomNameGenerator');
 // Init based on your current need
 var stripe = initializeStripe('GB');
 
-const CHECKOUT_KEY_THREE = process.env.CHECKOUT_KEY_THREE
-
-const querystring = require("querystring");  
-const { exit } = require('process');
-const { get } = require('http');
+const { exit, off } = require('process');
 
 // parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: false }))
 
 // parse application/json
 app.use(bodyParser.json())
+
+
+
+// Centralized error-handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Internal Server Error' });
+});
 
 let port = 4242
 
@@ -58,223 +63,140 @@ app.get('/get-random-customer', async (req, res) => {
 
 })
 
-app.post('/create-forwarding-request', async (req, res) => {
-    const data = req.body;
-
-    try {
-        const forwardingRequest = await createForwardingRequest(data.paymentMethod.id)
-        res.json(forwardingRequest)
-    } catch (error) {
-        console.log(error.message)
-    }
-})
-
 app.post('/create-setup-intent', async (req, res) => {
-
-  const data = req.body;
-
-  console.log(data.confirmationToken.payment_method_preview)
-  const name = data.confirmationToken.payment_method_preview.billing_details.name
-  const billing_address = data.confirmationToken.payment_method_preview.billing_details.address
+  console.time('POST /create-setup-intent');
   
-  console.time(['create-customer'])
+  const data = req.body;
+  const { name, address: billing_address } = data.confirmationToken.payment_method_preview.billing_details;
+
+  console.time('- create-customer');
 
   try {
-    var customer = await createCustomer(name)
-    console.timeEnd(['create-customer'])
+    let customer = await createCustomer(name);
+    
+    console.timeEnd('- create-customer');
 
-    customer = await stripe.customers.update(
+    // Updating customer concurrently in a separate promise
+    const updateCustomerPromise = stripe.customers.update(
       customer.id,
-      {
-        name: name,
-        address: billing_address,
-      }
+      { name, address: billing_address }
     );
 
-  } catch (error) {
-    console.log(`Create Customer error:  ${error.message}`)
-    res.json({
-      error: error.message
+    // Generate order number and ID
+    const order_number = getRandomInt(100000, 999999);
+    const order_id = `Order - ${order_number}`;
+
+    // Create setup intent concurrently
+    console.time('- create-setup-intent');
+    
+    const setupIntentPromise = stripe.setupIntents.create({
+      single_use: {
+        amount: 1000,
+        currency: 'gbp',
+      },
+      automatic_payment_methods: {
+        enabled: true,
+        allow_redirects: 'never',
+      },
+      usage: 'on_session',
+      description: order_id,
+      customer: customer.id,
+      use_stripe_sdk: 'true',
+      payment_method_options: {
+        card: {
+          request_three_d_secure: 'any', // any | automatic 
+          verify_card_account: 'never',
+          /*gateway: {
+            acquirer_bin:  '424242',
+            merchant_id:  'MITPOTYGNFQBEVD',
+            requestor_id: 'V0000000001234',
+          }*/
+        }
+      }
     });
-    exit()
-  }
 
-  try {
-      console.time(['create-setup-intent'])
+    // Await both the setup intent creation and customer update
+    const [updateCustomerResult, setupIntent] = await Promise.all([updateCustomerPromise, setupIntentPromise]);
+    
+    console.timeEnd('- create-setup-intent');
+    
+    res.json(setupIntent);
+    console.timeEnd('POST /create-setup-intent');
 
-      var order_number = getRandomInt(100000, 999999)
-      var order_id = `Order - ${order_number}`
-
-      const setupIntent = await stripe.setupIntents.create({   
-          
-          automatic_payment_methods:{
-            enabled: true,
-            allow_redirects: "never"
-          },
-          usage:"on_session",
-          description: order_id,
-          customer: customer.id,
-          payment_method_options: {
-            card: {
-              request_three_d_secure: "any", // any | automatic 
-                verify_card_account:"never",
-                /*gateway:{
-                  acquirer_bin:  "424242",
-                  merchant_id:  "MITPOTYGNFQBEVD",
-                  requestor_id: "V0000000001234"
-              }*/
-            }
-          }
-        });
-
-        res.json(setupIntent);
-        console.timeEnd(['create-setup-intent'])
-  
   } catch (error) {
-      console.log(`Create SetupIntent error:  ${error.message}`)
-      res.json({
-        error: error.message
-      });
-      exit()
+    console.log(`Error: ${error.message}`);
+    res.status(500).json({
+      error: error.message,
+    });
   }
 });
 
 app.post('/payments', async (req, res) => {
-  console.time(['payments endpoint'])
-
+  console.time('POST /payments');
+  
   const data = req.body;
-  const setupIntentId = data.setupIntent.id
+  const setupIntentId = data.setupIntent.id;
 
   try {
-    console.time(['retrieve setupIntent'])
+    console.time('- retrieve setupIntent');
 
-    var {payment_method, latest_attempt, customer} = await stripe.setupIntents.retrieve(
+    const { payment_method, latest_attempt, customer } = await stripe.setupIntents.retrieve(
       setupIntentId, {
-        expand: ['latest_attempt', 'customer']
+        expand: ['latest_attempt', 'customer'],
       }
     );
 
-    console.timeEnd(['retrieve setupIntent'])
+    console.log(latest_attempt.payment_method_details.card.three_d_secure);
 
-  } catch (error) {
-    console.log(`Retrieve SetupIntent error:  ${error.message}`)    
-    res.json({
-      error: error.message
-    });
-    exit()
-  }
-  
-  try {
-    console.time(['Forwarding-request'])
+    console.timeEnd('- retrieve setupIntent');
 
-    const forwardingRequest = await createForwardingRequest(customer, payment_method, latest_attempt.payment_method_details.card.three_d_secure)
+    console.time('- create-payment-intent');
     
-    const forwardingResponse = JSON.parse(forwardingRequest.response_details.body)
-
-    try {
-      customer = await stripe.customers.update(
-        customer.id,
-        {
-        default_source: payment_method.id,
-        invoice_settings:{
-          default_payment_method: payment_method.id
+    const paymentIntentPromise = stripe.paymentIntents.create({
+      amount: 1000,
+      currency: 'gbp',
+      payment_method: payment_method,
+      confirm: true,
+      payment_method_options: {
+        card: {
+          three_d_secure:{
+            electronic_commerce_indicator: latest_attempt.payment_method_details.card.three_d_secure.electronic_commerce_indicator,
+            version: latest_attempt.payment_method_details.card.three_d_secure.version,
+            cryptogram: latest_attempt.payment_method_details.card.three_d_secure.cryptogram,
+            transaction_id: latest_attempt.payment_method_details.card.three_d_secure.transaction_id,
+            cryptogram: "CJSJbzXT6TRQlvZDX+ZdOG4QriE=",
+          }
         }
-      });
-      console.log(`Customer updated: ${customer.id}`)
-
-    } catch (error) {
-      console.log(`Update Customer error:  ${error.message}`)
-    }
-
-
-    
-    
-    res.json({
-      three_d_secure: latest_attempt.payment_method_details.card.three_d_secure, 
-      forwardingRequest: forwardingResponse
-      })
-
-    console.timeEnd('Forwarding-request')
-    console.timeEnd(['payments endpoint'])
-
-  } catch (error) {
-    console.log(`Forwarding error:  ${error.message}`)    
-    res.json({
-      error: error.message
+      },
+      return_url: `http://localhost:4242/forwarding-request?setupIntentId=${setupIntentId}`,
+      customer: customer.id,
     });
-    exit()
-  }
 
+    const updateCustomerPromise = stripe.customers.update(customer.id, {
+      invoice_settings: {
+        default_payment_method: payment_method
+      }
+    });
+
+    const [paymentIntent, customerUpdate] = await Promise.all([paymentIntentPromise, updateCustomerPromise]);
+    
+    console.timeEnd('- create-payment-intent');
+    console.timeEnd('POST /payments');
+    res.json({
+      three_d_secure: latest_attempt.payment_method_details.card.three_d_secure,
+      paymentIntent: paymentIntent
+    });
+    
+  } catch (error) {
+    console.log(`Error: ${error.message}`);
+    res.status(500).json({
+      error: error.message,
+    });
+  }
 });
 
-const createForwardingRequest = async (customer, payment_method, three_d_secure_data) => {
 
-  const { authentication_flow, version, electronic_commerce_indicator, cryptogram, transaction_id } = three_d_secure_data
 
-  let order_id = getRandomInt(100000, 999999)
-  let amount = getRandomInt(10000, 99999)
-
-  try {
-    const forwardedReq = await stripe.forwarding.requests.create(
-        {
-            config: 'fwdcfg_acct_TESTCONFIG_checkout_payments',
-            payment_method: payment_method,
-            url: 'https://api.sandbox.checkout.com/payments',
-            request: {
-                headers: [{
-                    name: 'Authorization',
-                    value: `Bearer ${CHECKOUT_KEY_THREE}`
-                }],       
-                body: JSON.stringify(  
-                  {
-                    "amount": amount,
-                    "currency": "gbp",
-                    "reference": `ORD-${order_id}`,
-                    "processing_channel_id": "pc_6ar3fa7ihnkunif27w2eycyj44",
-                    "reference": "Visa-USD-Test",
-                    "customer": {
-                      "email": customer.email,
-                      "name": customer.name,
-                    },
-                    "3ds": {
-                      "eci": electronic_commerce_indicator,
-                      "cryptogram": "M6+990I6FLD8Y6rZz9d5QbfrMNY=",
-                      "xid": transaction_id,
-                      "version": version,
-                      "exemption": "low_value",
-                      "challenge_indicator": "no_preference",
-                    },
-                    "source": {
-                      "type": "card",
-                      "number": "",
-                      "expiry_month": 0,
-                      "expiry_year": 0,
-                      "name": "",
-                      "cvv": "",
-                      "billing_address": {
-                        "address_line1": "123 High St.",
-                        "address_line2": "Flat 456",
-                        "city": "London",
-                        "state": "GB",
-                        "zip": "SW1A 1AA",
-                        "country": "GB"
-                      }
-                    },
-                  }) 
-            },
-            replacements: ['card_number', 'card_expiry', 'card_cvc', 'cardholder_name'],
-        }
-    );
-
-    //console.log(JSON.parse(forwardedReq.response_details.body));  
-
-    return forwardedReq;
-    
-} catch (err) {
-    console.log(err.message);
-}
-
-}
 
 const getRandomInt = (min, max) => {
   min = Math.ceil(min);
@@ -327,3 +249,29 @@ const createPaymentMethod = async (card) => {
         console.log(error.message)
     }
 }
+
+app.post('/webhook', express.json({type: 'application/json'}), (request, response) => {
+  const event = request.body;
+
+  // Handle the event
+  switch (event.type) {
+    case 'payment_intent.succeeded':
+      const paymentIntent = event.data.object;
+      // Then define and call a method to handle the successful payment intent.
+      // handlePaymentIntentSucceeded(paymentIntent);
+      break;
+    case 'payment_method.attached':
+      const paymentMethod = event.data.object;
+      // Then define and call a method to handle the successful attachment of a PaymentMethod.
+      // handlePaymentMethodAttached(paymentMethod);
+      break;
+    case 'setup_intent.succeeded':
+      console.log(event.data.object)
+    // ... handle other event types
+    default:
+      console.log(`Unhandled event type ${event.type}`);
+  }
+
+  // Return a response to acknowledge receipt of the event
+  response.json({received: true});
+});

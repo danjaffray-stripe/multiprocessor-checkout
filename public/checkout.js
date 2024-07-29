@@ -32,7 +32,6 @@ async function initialize() {
 
   };
 
-
   const paymentElementOptions = {
     layout: "accordion",
     defaultValues:{
@@ -47,9 +46,11 @@ async function initialize() {
   defaultValues: billingDetails
 };
   const addressElement = elements.create('address', addressElementOptions);
+
   addressElement.mount('#address-element');
 
   var paymentElement = elements.create("payment", paymentElementOptions);
+
   paymentElement.mount("#payment-element");
 
   var emailInput = document.getElementById('email');
@@ -66,78 +67,56 @@ async function initialize() {
 
 }
 
-// ------- Handle Payment Submission -------
 async function handleSubmit(e) {
-
-  console.time(['handleSubmit'])
+  console.time('handleSubmit');
   
   e.preventDefault();
   setLoading(true);
 
-  const { error: submitError} = await elements.submit();
-
-
-  if (submitError) {
-    showMessage(submitError);
-    setLoading(false);
-    return;
-  }
-  //  ------- Create Confirmation Token from Payment Element ------- 
   try {
+    const { error: submitError } = await elements.submit();
+    
+    if (submitError) {
+      showMessage(submitError);
+      setLoading(false);
+      return;
+    }
 
-    console.time(['create Confirmation Token'])
-
-    var { confirmationToken } = await stripe.createConfirmationToken({
+    // Create a confirmationToken
+    console.time('create Confirmation Token');
+ 
+    const { confirmationToken } = await stripe.createConfirmationToken({
       elements, 
-      params:{
-        payment_method_data:{
+      params: {
+        payment_method_data: {
           billingDetails: elements.getElement('address').billingDetails,
-        }
-      }
-    
-    }); 
-    console.log(`confirmationToken created: ${confirmationToken.id} `)
+        },
+      },
+    });
 
-    showMessage("confirmationToken created successfully}");
-    console.timeEnd(['create Confirmation Token'])
+    console.log(`confirmationToken created: ${confirmationToken.id}`);
+    showMessage("confirmationToken created successfully");
+    console.timeEnd('create Confirmation Token');
 
-  } catch (error) {
-    console.log(error.message);
-    showMessage(error.message);
-    setLoading(false);
+    // Create a SetupIntent
+    console.time('create SetupIntent');
 
-  }
-
-  // ------- Create SetupIntent to run 3DSecure ------- 
-  try {
-    
-    console.time(['create SetupIntent'])
-
-    response = await fetch("/create-setup-intent", {
+    const setupIntentResponse = await fetch("/create-setup-intent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ confirmationToken }),
     });
 
-    var jsonData = await response.json();
-    showMessage("SetupIntent created successfully");
-    console.timeEnd(['create SetupIntent'])
-
-  } catch (error) {
-    console.log(error.message); 
-    setLoading(false);
-    showMessage(error.message);
-    console.timeEnd(['create SetupIntent'])
-  }
-
-  //  ------- Run 3DSecure on clientSide ------- 
-  // The payment_method was associated with the SetupIntent above, so we only need the client secret to run 3DSecure
-  try {
+    const setupIntentData = await setupIntentResponse.json();
     
-    console.time(['Run 3DSecure'])
+    showMessage("SetupIntent created successfully");
+    console.timeEnd('create SetupIntent');
 
-    var { setupIntent, error}  = await stripe.confirmSetup({
-      clientSecret: jsonData.client_secret,
+    // Run 3DSecure
+    console.time('Run 3DSecure');
+
+    const { setupIntent, error: confirmError } = await stripe.confirmSetup({
+      clientSecret: setupIntentData.client_secret,
       confirmParams: {
         return_url: 'https://example.com',
         confirmation_token: confirmationToken.id,
@@ -145,51 +124,47 @@ async function handleSubmit(e) {
       redirect: 'if_required',
     });
 
-    if (error) {
-      console.log(error.message);
-      showMessage(error.message);
-      setLoading(false);
-      console.timeEnd(['Run 3DSecure'])
-      return
+    if (confirmError) {
 
+      console.log(confirmError.message);
+      showMessage(confirmError.message);
+      setLoading(false);
+      console.timeEnd('Run 3DSecure');
+      return;
     } else {
+
       showMessage(setupIntent.status);
     }
-    console.timeEnd(['Run 3DSecure'])
-
-
-  } catch (error) {
-    console.log(error.message);
-    setLoading(false);
-    showMessage(error.message);
-  }
-
-  //  ------- Send SetupIntent to Server ------- 
-  try {
     
-    console.time(['Send SetupIntent to Server'])
+    console.timeEnd('Run 3DSecure');
 
-    response = await fetch("/payments", {
+    // Send SetupIntent to Server
+    console.time('Send SetupIntent to Server');
+
+    const paymentResponse = await fetch("/payments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ setupIntent }),
     });
 
-    var jsonData = await response.json();
-    console.log(jsonData)
-    console.timeEnd(['Send SetupIntent to Server'])
-
+    const paymentData = await paymentResponse.json();
+    
+    console.log(paymentData);
+    showMessage("PaymentIntent created successfully");
+    
+    console.timeEnd('Send SetupIntent to Server');
 
   } catch (error) {
     console.log(error.message);
-    setLoading(false);
+
     showMessage(error.message);
+    setLoading(false);
 
+  } finally {
+    
+    setLoading(false);
+    console.timeEnd('handleSubmit');
   }
-  showMessage("PaymentIntent created successfully");
-  setLoading(false);
-  console.timeEnd(['handleSubmit'])
-
 }
 
 // ------- UI helpers -------
@@ -206,7 +181,6 @@ function showMessage(messageText) {
 
 function showAmount(amount) {
   const messageContainer = document.querySelector("#amount-element");
-
   messageContainer.innerHTML = `£${amount / 100}`;
 
 }
